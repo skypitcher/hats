@@ -3,6 +3,7 @@ from typing import Dict
 
 from tabulate import tabulate
 
+from model import HeuristicNet
 from search import *
 from prelude import *
 
@@ -149,13 +150,16 @@ def get_heurisitc(n_ant):
 def test_all():
     test = Test()
 
-    n_ant = 16
+    n_ant = 12
     packet_length = 1024 // (2 * n_ant)
-    total_packets = 100000
+    total_packets = 9999999
 
     hyber_accelerated_heuristic = get_heurisitc(n_ant)
 
-    mem_size_list = [64, 3200, np.inf]
+    omega = [-1, 1]
+    mem_unit = 2 * n_ant * len(omega)
+    mem_size_list = [mem_unit, mem_unit ** 2, np.inf]
+    # mem_size_list = [np.inf]
 
     for mem_size in mem_size_list:
         test.add_model("SMA*({})".format(mem_size), SMAStar(capacity=mem_size, heuristic=None))
