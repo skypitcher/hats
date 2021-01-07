@@ -5,7 +5,7 @@ The key idea of this paper is to train the network towards the optimal heuristic
 
 ## Requirements
 To run the code you have to fullfill the following dependencies,
-* `pip install matplotlib>=3.1`
+* `matplotlib>=3.1`
 * `tabulate>=0.8`
 * `numpy>=1.16`
 * `pytorch >= 1.5`
