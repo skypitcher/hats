@@ -65,6 +65,9 @@ class SMAStar:
     def max_mem_usage(self):
         return self.__tree.max_memory_usage()
 
+    def __call__(self, *args, **kwargs):
+        return self.search(*args, omega=[-1, 1])
+
     def search(self, y: np.ndarray, R: np.ndarray, omega):
         self.nodes_expanded = 0
         self.nodes_generated = 0

@@ -83,7 +83,7 @@ def mmse_estimate(y, H):
     eye = np.eye(H.shape[1])
     H_pinv = np.linalg.inv(H.T @ H + eye) @ H.T
     z = H_pinv @ y
-    return get_bits(z)
+    return np.where(z < 0, -1, 1)
 
 
 def average_vector_power(x: np.ndarray):

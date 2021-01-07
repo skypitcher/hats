@@ -1,5 +1,4 @@
 import time
-from typing import Dict
 
 from tabulate import tabulate
 
@@ -7,138 +6,7 @@ from model import HeuristicNet
 from search import *
 from prelude import *
 
-import xlwt
-
-
-class BERStat:
-    def __init__(self):
-        self.count = 0
-        self.total_bits = 0
-        self.prec = 0
-        self.total_err = 0
-        self.ber = 0
-        self.total_nodes_generated = 0
-        self.total_nodes_expanded = 0
-        self.avg_nodes_generated = 0
-        self.avg_nodes_expanded = 0
-        self.max_mem_usage = 0
-
-    def record(self, s, s_est, nodes_expanded, nodes_generated, maxmem):
-        self.max_mem_usage = maxmem
-
-        self.count += 1
-        self.total_bits += s.size
-        self.prec = 1 / self.total_bits
-        self.total_err += count_errors(s, s_est)
-        self.ber = self.total_err / self.total_bits
-
-        self.total_nodes_expanded += nodes_expanded
-        self.total_nodes_generated += nodes_generated
-        self.avg_nodes_expanded = self.total_nodes_expanded / self.count
-        self.avg_nodes_generated = self.total_nodes_generated / self.count
-
-    def __repr__(self):
-        return "BER={:e}({}/{})\tCOMP={:.2f}/{:.2f}\tPREC={:e}".format(
-            self.ber, self.total_err, self.total_bits, self.avg_nodes_expanded, self.avg_nodes_generated, self.prec)
-
-
-class BERTestTask:
-    def __init__(self, name: str, detector):
-        self.name = name
-        self.detector = detector
-        self.ber_stats: Dict[float, BERStat] = {}
-
-    def run(self, snr: float, y: np.ndarray, R: np.ndarray, s: np.ndarray, omega):
-        s_est = self.detector.search(y, R, omega)
-        if snr not in self.ber_stats:
-            self.ber_stats[snr] = BERStat()
-        self.ber_stats[snr].record(
-            s,
-            s_est,
-            self.detector.nodes_expanded,
-            self.detector.nodes_generated,
-            self.detector.max_mem_usage()
-        )
-        self._after_detect()
-
-    def _after_detect(self):
-        pass
-
-    def info(self, snr):
-        return "{}\t{}".format(self.name, self.ber_stats[snr])
-
-
-class Test:
-    def __init__(self):
-        self.tasks: List[BERTestTask] = []
-
-    def add_model(self, name, model):
-        task = BERTestTask(name, model)
-        self.tasks.append(task)
-        print("Task {} created".format(task.name))
-
-    def run(self, n_ant: int, snr: float, packet_length: int, total_packets: int):
-        t_start = time.time()
-
-        for i_packet in range(total_packets):
-            p = 10 ** (snr / 10)
-            H = np.sqrt(p / n_ant) / np.sqrt(2) * complex_channel(n_ant)
-            Q, R = np.linalg.qr(H)
-
-            for i_slot in range(packet_length):
-                b = random_bits([2 * n_ant, 1])
-                s = qpsk(b)
-                w = np.random.randn(2 * n_ant, 1)
-                y = R @ s + Q.T @ w
-
-                for task in self.tasks:
-                    task.run(snr, y, R, s, omega=[-1, 1])
-
-            print("NUM_ANT={} SNR={} Packet={}/{}".format(n_ant, snr, i_packet + 1, total_packets))
-            table = []
-            for task in self.tasks:
-                stats = task.ber_stats[snr]
-                table.append([
-                    task.name,
-                    "{:e}({}/{})".format(stats.ber, stats.total_err, stats.total_bits),
-                    stats.prec,
-                    "{:.2f}/{:.2f}".format(stats.avg_nodes_expanded, stats.avg_nodes_generated),
-                    stats.max_mem_usage
-                ])
-            print(tabulate(
-                table,
-                headers=["Name", "BER", "PREC", "Complexity", "MaxMemUsage"],
-                floatfmt=("", "", "e", "", ""),
-                stralign="left",
-                numalign="right"
-            ))
-            print()
-
-        t_end = time.time()
-        t_total = t_end - t_start
-        print("{:.2f} seconds elapsed".format(t_total))
-
-    def save_xls(self, filename):
-        workbook = xlwt.Workbook(encoding='utf-8')
-        sheet = workbook.add_sheet('benchmark')
-
-        snr_ok = False
-        offset = len(self.tasks) + 1
-        sheet.write(0, 0, "SNR")
-        for i_task, task in enumerate(self.tasks):
-            sheet.write(0, i_task + 1, task.name)
-            sheet.write(0, offset + i_task + 1, task.name)
-
-            if not snr_ok:
-                for i_snr, snr in enumerate(task.ber_stats):
-                    sheet.write(i_snr + 1, 0, "{:02}".format(snr))
-                snr_ok = True
-
-            for i_snr, snr in enumerate(task.ber_stats):
-                sheet.write(i_snr + 1, i_task + 1, "{:e}".format(task.ber_stats[snr].ber))
-                sheet.write(i_snr + 1, offset + i_task + 1, "{:.2f}".format(task.ber_stats[snr].avg_nodes_generated))
-
-        workbook.save(filename)
+import matplotlib.pyplot as plt
 
 
 def get_heurisitc(n_ant):
@@ -147,31 +15,155 @@ def get_heurisitc(n_ant):
     return lambda y, R, psv: dnn.compute(y, R, psv)
 
 
-def test_all():
-    test = Test()
-
-    n_ant = 12
-    packet_length = 1024 // (2 * n_ant)
-    total_packets = 9999999
-
+def get_algorithms(n_ant, mem_size_list):
+    alg_list = []
     hyber_accelerated_heuristic = get_heurisitc(n_ant)
 
+    alg_list.append(["MMSE", mmse_estimate])
+
+    for mem_size in mem_size_list:
+        alg_list.append(
+            (
+                "SMA*({})".format(mem_size),
+                SMAStar(capacity=mem_size, heuristic=None)
+            )
+        )
+        alg_list.append(
+            (
+                "HATS({})".format(mem_size),
+                SMAStar(capacity=mem_size, heuristic=hyber_accelerated_heuristic)
+            )
+        )
+
+    return alg_list
+
+
+def test_algorithms(algorithms, snr, n_ant, packet_length, total_packets):
+    total_errs = np.zeros(len(algorithms))
+    total_nodes_expanded_list = np.zeros(len(algorithms))
+    total_nodes_generated_list = np.zeros(len(algorithms))
+
+    last_len = 0
+    for i_packet in range(total_packets):
+        p = 10 ** (snr / 10)
+        H = np.sqrt(p / n_ant) / np.sqrt(2) * complex_channel(n_ant)
+        Q, R = np.linalg.qr(H)
+
+        for i_timeslot in range(packet_length):
+            b = random_bits([2 * n_ant, 1])
+            x = qpsk(b)
+            w = np.random.randn(2 * n_ant, 1)
+            y = R @ x + Q.T @ w
+
+            for i_alg, (alg_name, alg) in enumerate(algorithms):
+                x_est = alg(y, R)
+                err = count_errors(x, x_est)
+                total_errs[i_alg] += err
+                total_nodes_expanded_list[
+                    i_alg] += alg.nodes_expanded if "nodes_expanded" in alg.__dict__ is not None else 0
+                total_nodes_generated_list[
+                    i_alg] += alg.nodes_generated if "nodes_generated" in alg.__dict__ is not None else 0
+
+                info_txt = "Testing n_ant={} snr={} packet={}/{} timeslots={}/{} algorithms={}/{} {}".format(
+                    n_ant, snr, i_packet + 1, total_packets, i_timeslot + 1, packet_length, i_alg + 1, len(algorithms),
+                    alg_name)
+                if last_len > 0:
+                    print(" " * last_len, end="\r")
+                print(info_txt, end="\r")
+                last_len = len(info_txt) + 2
+
+        print()
+        total_time_slots_now = (i_packet + 1) * packet_length
+        total_bits_now = total_time_slots_now * 2 * n_ant
+
+        precision = 1 / total_bits_now
+
+        bers_list = total_errs / total_bits_now
+        avg_nodes_expanded_list = total_nodes_expanded_list / total_time_slots_now
+        avg_nodes_generated_list = total_nodes_generated_list / total_time_slots_now
+
+        table = []
+        for i_alg, (alg_name, alg) in enumerate(algorithms):
+            table.append([
+                alg_name,
+                "{:e}({}/{})".format(bers_list[i_alg], total_errs[i_alg], total_bits_now),
+                precision,
+                "{:.2f}/{:.2f}".format(avg_nodes_expanded_list[i_alg], avg_nodes_generated_list[i_alg])
+            ])
+        print(tabulate(
+            table,
+            headers=["NAME", "BER", "PRECISION", "STEPS"],
+            floatfmt=("", "", "e", ""),
+            stralign="left",
+            numalign="right"
+        ))
+        print()
+
+    return bers_list, avg_nodes_expanded_list, avg_nodes_generated_list
+
+
+def run_test(alg_list, snr, n_ant, packet_length, total_packets):
+    t_start = time.time()
+    results = test_algorithms(alg_list, snr, n_ant, packet_length, total_packets)
+    t_end = time.time()
+    t_total = t_end - t_start
+    print("{:.2f} seconds elapsed".format(t_total))
+    return results
+
+
+def test_mimo_system(snr_list, n_ant, total_packets):
     omega = [-1, 1]
-    mem_unit = 2 * n_ant * len(omega)
-    mem_size_list = [mem_unit, mem_unit ** 2, np.inf]
-    # mem_size_list = [np.inf]
+    m = 2 * n_ant
+    u = m * len(omega)
+    packet_length = 1024 // (2 * n_ant)
+    mem_list = [u, u ** 2, np.inf]
 
-    for mem_size in mem_size_list:
-        test.add_model("SMA*({})".format(mem_size), SMAStar(capacity=mem_size, heuristic=None))
+    alg_list = get_algorithms(n_ant, mem_list)
+    alg_ber_list = np.zeros([len(alg_list), len(snr_list)])
+    alg_avg_nodes_generated_list = np.zeros([len(alg_list), len(snr_list)])
 
-    for mem_size in mem_size_list:
-        test.add_model("HATS({})".format(mem_size), SMAStar(capacity=mem_size, heuristic=hyber_accelerated_heuristic))
+    fmt_list = ["k-+", "b-*", "r-o", "b--*", "r--o", "b:*", "r:o"]
 
-    for snr in [25]:
-        test.run(n_ant, snr, packet_length, total_packets)
+    snr_results = []
+    for snr in snr_list:
+        snr_results.append(run_test(alg_list, snr, n_ant, packet_length, total_packets))
 
-    test.save_xls("result/temp.xls")
+    for i_snr, snr in enumerate(snr_list):
+        bers_list, avg_nodes_expanded_list, avg_nodes_generated_list = snr_results[i_snr]
+        for i_alg in range(len(alg_list)):
+            alg_ber_list[i_alg, i_snr] = bers_list[i_alg]
+            alg_avg_nodes_generated_list[i_alg, i_snr] = avg_nodes_generated_list[i_alg]
+
+    alg_complexity_coefficients = alg_avg_nodes_generated_list / m
+
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    fig.suptitle('QPSK {}x{} MIMO'.format(n_ant, n_ant))
+
+    legend = []
+    for i_alg, (alg_name, alg) in enumerate(alg_list):
+        ax1.semilogy(snr_list, alg_ber_list[i_alg, :], fmt_list[i_alg])
+        legend.append(alg_name)
+
+    ax1.legend(legend)
+    ax1.set_xlabel("SNR (dB)")
+    ax1.set_ylabel("BER")
+    ax1.set_xticks(snr_list)
+    ax1.set_title("BER Performance Comparison")
+
+    legend = []
+    for i_alg, (alg_name, alg) in enumerate(alg_list):
+        if alg_complexity_coefficients[i_alg, 0] > 0:
+            ax2.semilogy(snr_list, alg_complexity_coefficients[i_alg, :], fmt_list[i_alg])
+            legend.append(alg_name)
+
+    ax2.legend(legend)
+    ax2.set_xlabel("SNR (dB)")
+    ax2.set_ylabel("Complexity coefficient")
+    ax2.set_xticks(snr_list)
+    ax2.set_title("Complexity Comparison")
+
+    plt.show()
 
 
 if __name__ == "__main__":
-    test_all()
+    test_mimo_system(snr_list=range(5, 26), n_ant=8, total_packets=1000)
