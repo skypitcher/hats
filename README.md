@@ -4,7 +4,7 @@ This is the repo for the paper entitled
 
 This paper investigates the classical integer least-squares problem which estimates integer signals from linear models. The problem is NP-hard and often arises in diverse applications such as signal processing, bioinformatics, communications and machine learning, to name a few. Since the existing optimal search strategies involve prohibitive complexities, they are hard to be adopted in large-scale problems. To address this issue, we propose a general hyper-accelerated tree search (HATS) algorithm by employing a deep neural network to estimate the optimal heuristic for the underlying simplified memory-bounded A* algorithm, and the proposed algorithm can be easily generalized with other heuristic search algorithms. Inspired by the temporal difference learning, we further propose a training strategy which enables the network to approach the optimal heuristic precisely and consistently, thus the proposed algorithm can reach nearly the optimal efficiency when the estimation error is small enough. Experiments show that the proposed algorithm can reach almost the optimal maximum likelihood estimate performance in large-scale problems, with a very low complexity in both time and space. 
 
-The key idea of this paper is to train the network towards the optimal heuristic. Please see more detials in the [arXiv preprint](https://www.arxiv.com).
+The key idea of this paper is to train the network towards the optimal heuristic. Please see more detials in [aXive](https://arxiv.org/abs/2101.02420).
 
 ## Requirements
 To run the code you have to fullfill the following dependencies,
