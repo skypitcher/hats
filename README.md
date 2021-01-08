@@ -1,7 +1,7 @@
 # Hyper-Accelerated Tree Search (HATS)
 This is the repo for the paper entitled 
 "Towards Optimally Efficient Tree Search with Deep Temporal Difference Learning". 
-The key idea of this paper is to train the network towards the optimal heuristic. Please see more detials in [aXiv](https://arxiv.org/abs/2101.02420).
+The key idea of this paper is to train the network towards the optimal heuristic. Please see more detials in [arXiv](https://arxiv.org/abs/2101.02420).
 
 ## Requirements
 To run the code you have to fullfill the following dependencies,
