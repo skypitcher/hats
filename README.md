@@ -18,6 +18,7 @@ To run the code you have to fullfill the following dependencies,
 You can change `n_ant` and `snr_list` and then run `python test.py` to see the result. 
 Note that only `n_ant in [4, 8, 12, 16, 20, 24, 28, 32]` and `snr_list in range(5, 26)` are supported by the out-of-box, since we only train the model for these cases.
 
+![Example8x8MIMO](figs/8x8.png)
 
 ## Under Construction
 TBD
