@@ -17,6 +17,8 @@ Note that only `n_ant in [4, 8, 12, 16, 20, 24, 28, 32]` and `snr_list in range(
 
 ![Example8x8MIMO](figs/8x8.png)
 
+![Example16x16MIMO](figs/16x16.png)
+
 ## Under Construction
 TBD
 
