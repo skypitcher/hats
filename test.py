@@ -56,6 +56,15 @@ def test_algorithms(algorithms, snr, n_ant, packet_length, total_packets):
             y = R @ x + Q.T @ w
 
             for i_alg, (alg_name, alg) in enumerate(algorithms):
+                info_txt = "Testing n_ant={} snr={} packet={}/{} timeslots={}/{} algorithms={}/{} {}".format(
+                    n_ant, snr, i_packet + 1, total_packets, i_timeslot + 1, packet_length, i_alg + 1, len(algorithms),
+                    alg_name)
+
+                if last_len > 0:
+                    print(" " * last_len, end="\r")
+                print(info_txt + "..", end="\r")
+                last_len = len(info_txt) + 4
+
                 x_est = alg(y, R)
                 err = count_errors(x, x_est)
                 total_errs[i_alg] += err
@@ -63,14 +72,6 @@ def test_algorithms(algorithms, snr, n_ant, packet_length, total_packets):
                     i_alg] += alg.nodes_expanded if "nodes_expanded" in alg.__dict__ is not None else 0
                 total_nodes_generated_list[
                     i_alg] += alg.nodes_generated if "nodes_generated" in alg.__dict__ is not None else 0
-
-                info_txt = "Testing n_ant={} snr={} packet={}/{} timeslots={}/{} algorithms={}/{} {}".format(
-                    n_ant, snr, i_packet + 1, total_packets, i_timeslot + 1, packet_length, i_alg + 1, len(algorithms),
-                    alg_name)
-                if last_len > 0:
-                    print(" " * last_len, end="\r")
-                print(info_txt, end="\r")
-                last_len = len(info_txt) + 2
 
         print()
         total_time_slots_now = (i_packet + 1) * packet_length
@@ -166,4 +167,4 @@ def test_mimo_system(snr_list, n_ant, total_packets):
 
 
 if __name__ == "__main__":
-    test_mimo_system(snr_list=range(5, 26), n_ant=8, total_packets=1000)
+    test_mimo_system(snr_list=[13, 13.25, 13.5, 13.75, 14.25, 14.5, 14.75, 15], n_ant=32, total_packets=1000)
